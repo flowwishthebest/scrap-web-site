@@ -19,6 +19,8 @@
   "homepage": "https://github.com/flowwishthebest/scrap-web-site#readme",
   "dependencies": {
     "cheerio": "1.0.0-rc.10",
+    "cheerio-tableparser": "1.0.1",
+    "exceljs": "4.2.1",
     "got": "11.8.2",
     "puppeteer": "10.2.0"
   }
