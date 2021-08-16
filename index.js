@@ -15,6 +15,17 @@ async function loadHtml(url) {
 	}
 }
 
+function exctractCars($) {
+    const entries = $('div[id^="comp-"] a');
+
+    return entries.toArray()
+        .filter((el) => el.attribs['aria-label'])
+        .map((el) => ({
+            name: el.attribs['aria-label'],
+            link: el.attribs['href'],
+        }));
+}
+
 async function main() {
     const html = await loadHtml(url);
 
@@ -23,6 +34,10 @@ async function main() {
 	const $ = cheerio.load(html, null, false);
 
 	console.log('loaded html');
+
+    const cars = exctractCars($);
+
+    console.log(`extracted ${cars.length} cars`);
 }
 
 main();
