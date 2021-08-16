@@ -15,7 +15,7 @@ async function loadHtml(url) {
 	}
 }
 
-function exctractCars($) {
+function extractCars($) {
     const entries = $('div[id^="comp-"] a');
 
     return entries.toArray()
@@ -28,15 +28,10 @@ function exctractCars($) {
 
 async function main() {
     const html = await loadHtml(url);
-
-	console.log('fetched html page');
-
-	const $ = cheerio.load(html, null, false);
-
-	console.log('loaded html');
-
-    const cars = exctractCars($);
-
+    console.log('fetched html page');
+    const $ = cheerio.load(html, null, false);
+    console.log('loaded html');
+    const cars = extractCars($);
     console.log(`extracted ${cars.length} cars`);
 }
 
