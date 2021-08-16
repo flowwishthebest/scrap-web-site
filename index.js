@@ -6,13 +6,13 @@ const cheerio = require('cheerio');
 const url = 'https://immokoks.com';
 
 async function loadHtml(url) {
-	try {
-		const res = await got(url);
-		return res.body;
-	} catch (err) {
-		console.error('cant fetch html page', err);
-		process.exit(1);
-	}
+    try {
+        const res = await got(url);
+        return res.body;
+    } catch (err) {
+        console.error('cant fetch html page', err);
+        process.exit(1);
+    }
 }
 
 function extractCars($) {
