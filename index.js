@@ -33,7 +33,7 @@ async function getFullyLoadedHtml(browser, link) {
     const page = await browser.newPage();
     await page.goto(link);
     page.evaluate((_) => window.scrollBy(0, 1000));
-    await new Promise((resolve) => setTimeout(resolve, 5000));
+    await new Promise((resolve) => setTimeout(resolve, 2500));
     const html = await page.evaluate(
         () => document.querySelector('*').outerHTML,
     );
@@ -74,6 +74,12 @@ function processCarTable(html) {
     return $('table').parsetable();
 }
 
+function isAnchor(str){
+    return /^\<a.*\>.*\<\/a\>/i.test(str);
+}
+
+const manuals = {};
+
 async function main() {
     const html = await loadHtml(url);
     console.log('fetched html page');
@@ -106,11 +112,48 @@ async function main() {
 
         sheet.columns = cols;
 
-        table.forEach((col, idx) => {
+        for (const [idx, col] of table.entries()) {
             const values = col.slice(1).map((v) => v.replace('&nbsp;', ''));
 
-            sheet.getColumn(idx + 1).values = values;
-        });
+            const processedValues = [];
+            for (const v of values) {
+                if (isAnchor(v)) {
+                    const $ = cheerio.load(v);
+                    const [a] = $('a').toArray().map((el) => {
+                        return {
+                            href: el.attribs['href'],
+                            txt: $(el).text(),
+                        };
+                    });
+
+                    processedValues.push(a.txt);
+
+                    if (a.txt === 'MANUAL') {
+                        console.log('Need to parse manual', a);
+                        const cached = manuals[a.href];
+                        if (!cached) {
+                            console.log('fetching manual from', a);
+                            const html = await getFullyLoadedHtml(browser, a.href);
+                            const $ = cheerio.load(html, null, false);
+
+                            const txt = $('div[id^="comp-"]').contents().text();
+
+                            console.log(txt);
+
+                            require('fs').writeFileSync(require('path').join('.', car.name), txt);
+
+                            sheet.getCell(1, idx + 1).note = txt;
+
+                            manuals[a.href] = 1;
+                        }
+                    }
+                } else {
+                    processedValues.push(v);
+                }
+            }
+
+            sheet.getColumn(idx + 1).values = processedValues;
+        }
 
         done += 1;
 
@@ -119,7 +162,7 @@ async function main() {
 
     await browser.close();
 
-    await workBook.xlsx.writeFile('./cars.xlsx');
+    await workBook.xlsx.writeFile('./cars2.xlsx');
 }
 
 main().then(() => {
