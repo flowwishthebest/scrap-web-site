@@ -7,6 +7,10 @@ const excelJs = require('exceljs');
 
 const url = 'https://immokoks.com';
 
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function extractCars(html) {
     const $ = cheerio.load(html, null, false);
 
@@ -19,10 +23,11 @@ function extractCars(html) {
 }
 
 async function getFullyLoadedHtml(browser, link) {
+    console.log(`fetching page ${link}`);
     const page = await browser.newPage();
     await page.goto(link);
     page.evaluate((_) => window.scrollBy(0, 1000));
-    await new Promise((resolve) => setTimeout(resolve, 2500));
+    await sleep(2000);
     const html = await page.evaluate(
         () => document.querySelector('*').outerHTML,
     );
@@ -32,11 +37,10 @@ async function getFullyLoadedHtml(browser, link) {
 
 async function extractCarHtml(browser, car) {
     const srcTableHtml = await getFullyLoadedHtml(browser, car.link);
-    
+
     const src = extractCarTableSrc(srcTableHtml);
 
     if (!src) {
-        console.log(`cant fetch table src for ${car.name}`);
         return null;
     }
 
@@ -57,14 +61,75 @@ function extractCarTableSrc(html) {
 
 function processCarTable(html) {
     const $ = cheerio.load(html, null, false);
-
     tableParser($);
-    
     return $('table').parsetable();
 }
 
 function isAnchor(str){
     return /^\<a.*\>.*\<\/a\>/i.test(str);
+}
+
+async function processCar(car, browser, workBook) {
+    const carTableHtml = await extractCarHtml(browser, car);
+
+    const table = processCarTable(carTableHtml);
+
+    if (!table) {
+        return console.log(`cant fetch table for car ${car.name}`);
+    }
+
+    const sheet = workBook.addWorksheet(car.name);
+
+    const cols = [];
+    table.forEach((col, idx) => {
+        cols.push({
+            header: col[1],
+            key: idx + 1, 
+        });
+    });
+
+    sheet.columns = cols;
+
+    for (const [idx, col] of table.entries()) {
+        const values = col.slice(1).map((v) => v.replace('&nbsp;', ''));
+
+        const processedValues = [];
+        for (const v of values) {
+            if (isAnchor(v)) {
+                const $ = cheerio.load(v);
+                const [a] = $('a').toArray().map((el) => {
+                    return {
+                        href: el.attribs['href'],
+                        txt: $(el).text(),
+                    };
+                });
+
+                processedValues.push(a.txt);
+
+                if (a.txt === 'MANUAL') {
+                    const cached = manuals[a.href];
+                    if (!cached) {
+                        console.log(
+                            `fetching manual (${a.href}) for car ${car.name}`,
+                        );
+
+                        const html = await getFullyLoadedHtml(browser, a.href);
+                        const $ = cheerio.load(html, null, false);
+
+                        const txt = $('div[id^="comp-"]').contents().text();
+
+                        sheet.getCell(1, idx + 1).note = txt;
+
+                        manuals[a.href] = 1;
+                    }
+                }
+            } else {
+                processedValues.push(v);
+            }
+        }
+
+        sheet.getColumn(idx + 1).values = processedValues;
+    }
 }
 
 const manuals = {};
@@ -79,75 +144,11 @@ async function main() {
     console.log(`extracted ${cars.length} cars`);
 
     const workBook = new excelJs.Workbook();
-
+    
     let done = 0;
     for (const car of cars) {
-        const carTableHtml = await extractCarHtml(browser, car);
-
-        const table = processCarTable(carTableHtml);
-
-        if (!table) {
-            console.log(`cant fetch table for car ${car.name}`);
-            continue;
-        }
-
-        const sheet = workBook.addWorksheet(car.name);
-
-        const cols = [];
-        table.forEach((col, idx) => {
-            cols.push({
-                header: col[1],
-                key: idx + 1, 
-            });
-        });
-
-        sheet.columns = cols;
-
-        for (const [idx, col] of table.entries()) {
-            const values = col.slice(1).map((v) => v.replace('&nbsp;', ''));
-
-            const processedValues = [];
-            for (const v of values) {
-                if (isAnchor(v)) {
-                    const $ = cheerio.load(v);
-                    const [a] = $('a').toArray().map((el) => {
-                        return {
-                            href: el.attribs['href'],
-                            txt: $(el).text(),
-                        };
-                    });
-
-                    processedValues.push(a.txt);
-
-                    if (a.txt === 'MANUAL') {
-                        console.log('Need to parse manual', a);
-                        const cached = manuals[a.href];
-                        if (!cached) {
-                            console.log('fetching manual from', a);
-                            const html = await getFullyLoadedHtml(browser, a.href);
-                            const $ = cheerio.load(html, null, false);
-
-                            const txt = $('div[id^="comp-"]').contents().text();
-
-                            console.log(txt);
-
-                            require('fs').writeFileSync(require('path').join('.', car.name), txt);
-
-                            sheet.getCell(1, idx + 1).note = txt;
-
-                            manuals[a.href] = 1;
-                        }
-                    }
-                } else {
-                    processedValues.push(v);
-                }
-            }
-
-            sheet.getColumn(idx + 1).values = processedValues;
-        }
-
+        await processCar(car, browser, workBook);
         done += 1;
-
         console.log(`processed ${done} of ${cars.length}`);
     }
 
