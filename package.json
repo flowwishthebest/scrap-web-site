@@ -1,7 +1,7 @@
 {
   "name": "scrap-web-site",
-  "version": "1.0.0",
-  "description": "",
+  "version": "0.0.1",
+  "description": "Scrap web site about cars",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -10,9 +10,9 @@
     "type": "git",
     "url": "git+https://github.com/flowwishthebest/scrap-web-site.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": ["scrap", "web", "page", "cars"],
+  "author": "Ilya P.",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/flowwishthebest/scrap-web-site/issues"
   },
@@ -21,7 +21,6 @@
     "cheerio": "1.0.0-rc.10",
     "cheerio-tableparser": "1.0.1",
     "exceljs": "4.2.1",
-    "got": "11.8.2",
     "puppeteer": "10.2.0"
   }
 }

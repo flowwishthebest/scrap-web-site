@@ -1,22 +1,11 @@
 'use strict';
 
-const got = require('got');
 const cheerio = require('cheerio');
 const puppeteer = require('puppeteer');
 const tableParser = require('cheerio-tableparser');
 const excelJs = require('exceljs');
 
 const url = 'https://immokoks.com';
-
-async function loadHtml(url) {
-    try {
-        const res = await got(url);
-        return res.body;
-    } catch (err) {
-        console.error('cant fetch html page', err);
-        process.exit(1);
-    }
-}
 
 function extractCars(html) {
     const $ = cheerio.load(html, null, false);
@@ -81,13 +70,15 @@ function isAnchor(str){
 const manuals = {};
 
 async function main() {
-    const html = await loadHtml(url);
+    const browser = await puppeteer.launch();
+
+    const html = await getFullyLoadedHtml(browser, url);
     console.log('fetched html page');
+
     const cars = extractCars(html);
     console.log(`extracted ${cars.length} cars`);
 
     const workBook = new excelJs.Workbook();
-    const browser = await puppeteer.launch();
 
     let done = 0;
     for (const car of cars) {
